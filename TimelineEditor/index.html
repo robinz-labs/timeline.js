@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>Timeline Editor</title>
+    <style>
+        body {
+            background-color: #1e1e1e;
+            margin: 0;
+            padding: 0;
+        }
+        .timeline-container {
+            margin: 20px;
+        }
+        canvas {
+            border: 1px solid #333;
+        }
+        #timelineCanvas {
+            display: block;
+            margin: 0;
+        }
+        .button-container {
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            margin-right: 10px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #playheadValue {
+            color: #666;
+            margin-left: 10px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="timeline-container">
+        <canvas id="timelineCanvas" height="300"></canvas>
+        <div class="button-container">
+            <button id="saveButton">Save</button>
+            <button id="loadButton">Load</button>
+            <button id="undoButton">Undo</button>
+            <button id="playButton">Play</button>
+            <button id="stopButton">Stop</button>
+            <div id="playheadValue"></div>
+        </div>
+    </div>
+    <script src="timeline.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
