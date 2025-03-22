@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/">
+        <file>main.qml</file>
+        <file>main.html</file>
+        <file>../timeline.js</file>
+    </qresource>
+</RCC>
