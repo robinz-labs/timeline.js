@@ -298,7 +298,7 @@ class TimelineEditor {
     // Check if time axis area is clicked
     isTimeAxisAreaClicked(x, y) {
         // Check bottom time axis area
-        const isBottomArea = y >= this.canvas.height - this.margin.bottom + 15 && 
+        const isBottomArea = y >= this.canvas.height - this.margin.bottom + 5 && 
                            y <= this.canvas.height &&
                            x >= this.margin.left && 
                            x <= this.canvas.width - this.margin.right;
