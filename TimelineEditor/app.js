@@ -27,6 +27,10 @@ const loadButton = document.getElementById('loadButton');
 const undoButton = document.getElementById('undoButton');
 const playButton = document.getElementById('playButton');
 const stopButton = document.getElementById('stopButton');
+const addMarkerButton = document.getElementById('addMarkerButton');
+const saveMarkersButton = document.getElementById('saveMarkersButton');
+const loadMarkersButton = document.getElementById('loadMarkersButton');
+const clearMarkersButton = document.getElementById('clearMarkersButton');
 
 saveButton.addEventListener('click', () => {
     const data = timeline.exportData();
@@ -47,6 +51,7 @@ playButton.addEventListener('click', () => {
         timeline.play();
     }
 });
+
 stopButton.addEventListener('click', () => {
     if (timeline.playhead.isPlaying) {
         timeline.pause();
@@ -55,7 +60,24 @@ stopButton.addEventListener('click', () => {
     }
 });
 
-// Add Timeline event listener
+addMarkerButton.addEventListener('click', () => {
+    timeline.addMarker(timeline.playhead.time);
+});
+
+saveMarkersButton.addEventListener('click', () => {
+    const markersData = timeline.exportMarkers();
+    localStorage.setItem('timelineMarkers', JSON.stringify(markersData));
+});
+
+loadMarkersButton.addEventListener('click', () => {
+    const savedMarkers = localStorage.getItem('timelineMarkers');
+    timeline.importMarkers(JSON.parse(savedMarkers));
+});
+
+clearMarkersButton.addEventListener('click', () => {
+    timeline.clearMarkers();
+});
+
 timeline.addEventListener('playheadTimeChange', (data) => {
     const valueDisplay = document.getElementById('playheadValue');
     valueDisplay.textContent = `Time: ${data.time.toFixed(2)}s, Value: ${data.value.toFixed(2)}%`;

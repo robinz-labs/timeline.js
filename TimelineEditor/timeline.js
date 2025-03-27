@@ -1,5 +1,12 @@
 class TimelineEditor {
+
+    static PointType = {
+        POLYLINE: 0,
+        BEZIER: 1
+    };
+
     constructor(canvasId, options = {}) {
+        
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext('2d');
         
@@ -35,10 +42,15 @@ class TimelineEditor {
         this.isDragging = false;    // Flag indicating whether viewport is being dragged
         this.lastX = 0;             // Last mouse X position for drag calculation
 
+        // Initialize markers array and mark click detection
+        this.markers = [];
+        this.lastMarkerClickTime = 0;
+        this.lastClickedMarkerIndex = -1;
+
         // Default curve control points
         this.points = [
-            { time: 0, value: 50, type: 'polyline' },
-            { time: 30, value: 50, type: 'polyline' }  // End point at 30s
+            { time: 0, value: 50, type: TimelineEditor.PointType.POLYLINE },
+            { time: 30, value: 50, type: TimelineEditor.PointType.POLYLINE }  // End point at 30s
         ];
         this.selectedPoint = null;
         this.hoverPoint = null;
@@ -73,7 +85,7 @@ class TimelineEditor {
         this.eventListeners = {
             'playheadTimeChange': []
         };
-        
+                
         // Monitor playhead.time changes using Proxy
         this.playhead = new Proxy(this.playhead, {
             set: (target, property, value) => {
@@ -120,6 +132,23 @@ class TimelineEditor {
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
             
+            // Check if mark is clicked (add this before other click checks)
+            const markIndex = this.findNearestMark(x, y);
+            if (markIndex !== -1) {
+                const currentTime = Date.now();
+                
+                // Handle double click on mark
+                if (currentTime - this.lastMarkerClickTime < 300 && 
+                    markIndex === this.lastClickedMarkerIndex) {
+                    this.markers.splice(markIndex, 1);
+                    this.draw();
+                }
+                
+                this.lastMarkerClickTime = currentTime;
+                this.lastClickedMarkerIndex = markIndex;
+                return;
+            }
+
             // Check if playhead is clicked
             if (this.isPlayheadClicked(x, y)) {
                 this.playhead.isDragging = true;
@@ -162,7 +191,7 @@ class TimelineEditor {
                 const newPoint = this.checkLineClick(x, y);
                 if (newPoint) {
                     // Set point type based on mouse button
-                    newPoint.type = e.button === 2 ? 'bezier' : 'polyline';
+                    newPoint.type = e.button === 2 ? TimelineEditor.PointType.BEZIER : TimelineEditor.PointType.POLYLINE;
                     this.points.push(newPoint);
                     this.points.sort((a, b) => a.time - b.time);
                     this.selectedPoint = newPoint;
@@ -329,6 +358,27 @@ class TimelineEditor {
         return null;
     }
 
+    // Find the nearest mark to the clicked position
+    findNearestMark(x, y) {
+        const chartWidth = this.canvas.width - this.margin.left - this.margin.right;
+        
+        for (let i = 0; i < this.markers.length; i++) {
+            const time = this.markers[i];
+            if (time >= this.viewportStart && time <= this.viewportStart + this.viewportDuration) {
+                const markX = Math.round(this.margin.left + 
+                    ((time - this.viewportStart) / this.viewportDuration) * chartWidth);
+                
+                // Check if click is within 3 pixels of the mark line
+                if (Math.abs(x - markX) <= 3 && 
+                    y >= this.margin.top && 
+                    y <= this.canvas.height - this.margin.bottom) {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
     // Check if mouse click is on the curve line
     checkLineClick(x, y) {
         const chartWidth = this.canvas.width - this.margin.left - this.margin.right;
@@ -349,7 +399,7 @@ class TimelineEditor {
                 const t = (time - p1.time) / (p2.time - p1.time);
                 let expectedValue;
                 
-                if (p1.type === 'bezier' || p2.type === 'bezier') {
+                if (p1.type === TimelineEditor.PointType.BEZIER || p2.type === TimelineEditor.PointType.BEZIER) {
                     // Calculate bezier curve value
                     const cp1y = p1.value;
                     const cp2y = p2.value;
@@ -378,6 +428,7 @@ class TimelineEditor {
         this.drawGrid();
         this.drawTimeAxis();
         this.drawValueAxis();
+        this.drawMarkers();
         this.drawPolyline();
         this.drawPlayhead();
     }
@@ -433,7 +484,7 @@ class TimelineEditor {
             }
 
             // If one of the points is bezier control point, draw curve
-            if (p1.type === 'bezier' || p2.type === 'bezier') {
+            if (p1.type === TimelineEditor.PointType.BEZIER || p2.type === TimelineEditor.PointType.BEZIER) {
                 const cp1x = startX + (endX - startX) * 0.5;
                 const cp1y = startY;
                 const cp2x = startX + (endX - startX) * 0.5;
@@ -452,7 +503,7 @@ class TimelineEditor {
                 const y = this.margin.top + (1 - point.value / 100) * chartHeight;
 
                 this.ctx.beginPath();
-                if (point.type === 'bezier') {
+                if (point.type === TimelineEditor.PointType.BEZIER) {
                     // Bezier control point drawing as square
                     this.ctx.fillStyle = point === this.selectedPoint ? '#FFF' : this.lineColor;
                     this.ctx.rect(x - this.pointRadius, y - this.pointRadius, 
@@ -579,13 +630,33 @@ class TimelineEditor {
         }
     }
 
+    drawMarkers() {
+        const chartWidth = this.canvas.width - this.margin.left - this.margin.right;
+        const chartHeight = this.canvas.height - this.margin.top - this.margin.bottom;
+
+        this.ctx.strokeStyle = '#CC0000'; 
+        this.ctx.lineWidth = 1;
+
+        this.markers.forEach(time => {
+            if (time >= this.viewportStart && time <= this.viewportStart + this.viewportDuration) {
+                const x = Math.round(this.margin.left + 
+                    ((time - this.viewportStart) / this.viewportDuration) * chartWidth);
+                
+                this.ctx.beginPath();
+                this.ctx.moveTo(x, this.margin.top);
+                this.ctx.lineTo(x, this.canvas.height - this.margin.bottom);
+                this.ctx.stroke();
+            }
+        });
+    }
+
     // Export current curve data
     exportData() {
         const data = {
             points: this.points.map(p => ({
                 time: p.time,
                 value: p.value,
-                type: p.type || 'polyline'
+                type: p.type || TimelineEditor.PointType.POLYLINE
             }))
         };
         return data;
@@ -597,7 +668,7 @@ class TimelineEditor {
             this.points = data.points.map(p => ({
                 time: p.time,
                 value: p.value,
-                type: p.type || 'polyline'
+                type: p.type || TimelineEditor.PointType.POLYLINE
             }));
             
             this.history = [];
@@ -653,7 +724,7 @@ class TimelineEditor {
             if (time >= p1.time && time <= p2.time) {
                 const t = (time - p1.time) / (p2.time - p1.time);
                 
-                if (p1.type === 'bezier' || p2.type === 'bezier') {
+                if (p1.type === TimelineEditor.PointType.BEZIER || p2.type === TimelineEditor.PointType.BEZIER) {
                     // Bezier curve interpolation
                     const cp1y = p1.value;
                     const cp2y = p2.value;
@@ -712,5 +783,38 @@ class TimelineEditor {
         this.playhead.time = Math.max(0, Math.min(this.totalDuration, time));
         this.draw();
     }
+
+    // Add a mark at specified time
+    addMarker(time) {
+        time = Math.max(0, Math.min(this.totalDuration, time));
+        this.markers.push(time);
+        this.markers.sort((a, b) => a - b);
+        this.draw();
+        return this.markers.indexOf(time);
+    }
+
+    // Export markers data
+    exportMarkers() {
+        return {
+            markers: [...this.markers]  // Create a copy of markers array
+        };
+    }
+
+    // Import markers data
+    importMarkers(data) {
+        if (data && Array.isArray(data.markers)) {
+            this.markers = [...data.markers];  // Create a copy of imported markers
+            this.draw();
+            return true;
+        }
+        return false;
+    }
+
+    // Remove all markers
+    clearMarkers() {
+        this.markers = [];
+        this.draw();
+    }
 }
+
 

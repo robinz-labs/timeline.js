@@ -10,8 +10,9 @@ A JavaScript-based timeline editor component that provides an interactive interf
 - Support for both linear and bezier interpolation
 - Zoomable and pannable timeline view
 - Playback controls (play, pause, stop, seek)
+- Marker system for marking specific points in the timeline
 - Undo functionality
-- Export/Import curve data
+- Export/Import curve data and markers
 - Customizable appearance and duration
 
 ## Basic Usage
@@ -54,6 +55,7 @@ const timeline = new TimelineEditor('timelineCanvas', {
 - Right click: Add a bezier control point
 - Drag control point: Move the control point
 - Double click control point: Delete the control point
+- Double click marker: Remove the marker
 - Drag empty area: Pan viewport
 - Mouse wheel: Zoom in/out
 - Click the bottom or top area of ​​the timeline: Jump the playhead to the position
@@ -69,6 +71,7 @@ const timeline = new TimelineEditor('timelineCanvas', {
 - `maxViewportDuration`: Maximum viewport range in seconds
 - `lineColor`: Color of the lines / curves in the timeline view
 - `points`: Array of control points
+- `markers`: Array of marker positions
 - `playhead.time`: Current time position of the playhead in seconds
 - `playhead.isPlaying`: Whether playback is active (read-only)
 
@@ -86,6 +89,12 @@ const timeline = new TimelineEditor('timelineCanvas', {
 - `importData(data)`: Import curve data
 - `undo()`: Revert last change
 - `getValue(time)`: Get interpolated value at time (in seconds)
+
+#### Marker Management
+- `addMarker(time)`: Add a marker at time (in seconds)
+- `clearMarkers()`: Remove all markers
+- `exportMarkers()`: Export marker data
+- `importMarkers(data)`: Import marker data
 
 #### Event Handling
 - `addEventListener(eventName, callback)`: Add event listener
@@ -111,12 +120,16 @@ timeline.lineColor = '#0cf';
 // Import predefined curve
 timeline.importData({
     points: [
-        { time:  0, value: 0 },
+        { time:  0, value: 0 }, // default point type is TimelineEditor.PointType.POLYLINE
         { time:  5, value: 0 },
-        { time: 15, value: 100, type: 'bezier' },
+        { time: 15, value: 100, type: TimelineEditor.PointType.BEZIER },
         { time: 30, value: 0 }
     ]
 });
+
+// Add some markers
+timeline.addMarker(10);  // Add marker at 10s
+timeline.addMarker(20);  // Add marker at 20s
 
 // Monitor value changes
 timeline.addEventListener('playheadTimeChange', (data) => {
