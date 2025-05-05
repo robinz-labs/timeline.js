@@ -1,7 +1,7 @@
 class TimelineEditor {
 
     static PointType = {
-        POLYLINE: 0,
+        LINEAR: 0,
         BEZIER: 1
     };
 
@@ -49,8 +49,8 @@ class TimelineEditor {
 
         // Default curve control points
         this.points = [
-            { time: 0, value: 50, type: TimelineEditor.PointType.POLYLINE },
-            { time: 30, value: 50, type: TimelineEditor.PointType.POLYLINE }  // End point at 30s
+            { time: 0, value: 50, type: TimelineEditor.PointType.LINEAR },
+            { time: 30, value: 50, type: TimelineEditor.PointType.LINEAR }  // End point at 30s
         ];
         this.selectedPoint = null;
         this.hoverPoint = null;
@@ -91,8 +91,14 @@ class TimelineEditor {
             set: (target, property, value) => {
                 const oldValue = target[property];
                 target[property] = value;
-                if (property === 'time' && oldValue !== value) {
-                    this.emit('playheadTimeChange', { time: value, value: this.getValue(value) });
+                
+                if ((property === 'time' && oldValue !== value) ||
+                    (property === 'isPlaying' && oldValue !== value)) {
+                    this.emit('playheadTimeChange', { 
+                        time: target.time, 
+                        value: this.getValue(target.time),
+                        isPlaying: target.isPlaying 
+                    });
                 }
                 return true;
             }
@@ -132,12 +138,78 @@ class TimelineEditor {
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
             
-            // Check if mark is clicked (add this before other click checks)
+            // Check control points first
+            const point = this.findNearestPoint(x, y);
+            if (point) {
+                const currentTime = Date.now();
+                
+                if (currentTime - this.lastClickTime < 300 && point === this.lastClickPoint) {
+                    if (point !== this.points[0] && point !== this.points[this.points.length - 1]) {
+                        const index = this.points.indexOf(point);
+                        this.points.splice(index, 1);
+                        this.selectedPoint = null;
+                        this.saveToHistory();
+                    }
+                } else {
+                    this.selectedPoint = point;
+                    this.isDragging = false;
+                }
+                
+                this.lastClickTime = currentTime;
+                this.lastClickPoint = point;
+                this.draw();
+                return;
+            }
+
+            // Then check curve click
+            const newPoint = this.checkLineClick(x, y);
+            if (newPoint) {
+                newPoint.type = e.button === 2 ? TimelineEditor.PointType.BEZIER : TimelineEditor.PointType.LINEAR;
+                this.points.push(newPoint);
+                this.points.sort((a, b) => a.time - b.time);
+                this.selectedPoint = newPoint;
+                this.isDragging = false;
+                this.saveToHistory();
+                this.draw();
+                return;
+            }
+
+            // Check playhead next
+            if (this.isPlayheadClicked(x, y)) {
+                this.playhead.isDragging = true;
+                return;
+            }
+
+            // Check if click is within the chart area
+            const isInChartArea = x >= this.margin.left && 
+                                x <= this.canvas.width - this.margin.right &&
+                                y >= this.margin.top && 
+                                y <= this.canvas.height - this.margin.bottom;
+
+            if (isInChartArea) {
+                const currentTime = Date.now();
+                
+                // Check for double click
+                if (currentTime - this.lastBackgroundClickTime < 300 &&
+                    Math.abs(x - this.lastBackgroundClickX) < 5 &&
+                    Math.abs(y - this.lastBackgroundClickY) < 5) {
+                    const chartWidth = this.canvas.width - this.margin.left - this.margin.right;
+                    const time = this.viewportStart + 
+                        (x - this.margin.left) * this.viewportDuration / chartWidth;
+                    this.seek(time);
+                    return;
+                }
+                
+                this.lastBackgroundClickTime = currentTime;
+                this.lastBackgroundClickX = x;
+                this.lastBackgroundClickY = y;
+            }
+
+            // Check marker
             const markIndex = this.findNearestMark(x, y);
             if (markIndex !== -1) {
                 const currentTime = Date.now();
                 
-                // Handle double click on mark
                 if (currentTime - this.lastMarkerClickTime < 300 && 
                     markIndex === this.lastClickedMarkerIndex) {
                     this.markers.splice(markIndex, 1);
@@ -149,64 +221,9 @@ class TimelineEditor {
                 return;
             }
 
-            // Check if playhead is clicked
-            if (this.isPlayheadClicked(x, y)) {
-                this.playhead.isDragging = true;
-                return;
-            }
-
-            // Check if time axis area is clicked
-            if (this.isTimeAxisAreaClicked(x, y)) {
-                const chartWidth = this.canvas.width - this.margin.left - this.margin.right;
-                const time = this.viewportStart + 
-                    (x - this.margin.left) * this.viewportDuration / chartWidth;
-                this.seek(time);
-                return;
-            }
-
-            // Handle control point interaction
-            let shouldSaveHistory = false;
-            const point = this.findNearestPoint(x, y);
-            if (point) {
-                const currentTime = Date.now();
-                
-                // Handle double click on point
-                if (currentTime - this.lastClickTime < 300 && point === this.lastClickPoint) {
-                    // Don't allow deletion of endpoints
-                    if (point !== this.points[0] && point !== this.points[this.points.length - 1]) {
-                        const index = this.points.indexOf(point);
-                        this.points.splice(index, 1);
-                        this.selectedPoint = null;
-                        shouldSaveHistory = true;  // Save history after point deletion
-                    }
-                } else {
-                    this.selectedPoint = point;
-                    this.isDragging = false;
-                }
-                
-                this.lastClickTime = currentTime;
-                this.lastClickPoint = point;
-            } else {
-                // Check for new point creation on line
-                const newPoint = this.checkLineClick(x, y);
-                if (newPoint) {
-                    // Set point type based on mouse button
-                    newPoint.type = e.button === 2 ? TimelineEditor.PointType.BEZIER : TimelineEditor.PointType.POLYLINE;
-                    this.points.push(newPoint);
-                    this.points.sort((a, b) => a.time - b.time);
-                    this.selectedPoint = newPoint;
-                    this.isDragging = false;
-                    shouldSaveHistory = true;  // Save history after point creation
-                } else {
-                    this.isDragging = true;
-                    this.lastX = e.clientX;
-                }
-            }
-
-            if (shouldSaveHistory) {  // Save history if needed
-                this.saveToHistory();
-            }
-            this.draw();
+            // If no click detected, start viewport dragging
+            this.isDragging = true;
+            this.lastX = e.clientX;
         });
 
         document.addEventListener('mousemove', (e) => {
@@ -650,13 +667,24 @@ class TimelineEditor {
         });
     }
 
+    // Reset timeline to initial state
+    reset() {
+       this.points = [{ time: 0, value: 50 }, { time: 30, value: 50 }]; 
+       this.markers = [];
+       this.viewportStart = 0;
+       this.viewportDuration = 30;
+       this.selectedPoint = null;
+       this.isDragging = false;
+       this.draw();
+    }
+
     // Export current curve data
     exportData() {
         const data = {
             points: this.points.map(p => ({
                 time: p.time,
                 value: p.value,
-                type: p.type || TimelineEditor.PointType.POLYLINE
+                type: p.type || TimelineEditor.PointType.LINEAR
             }))
         };
         return data;
@@ -668,10 +696,10 @@ class TimelineEditor {
             this.points = data.points.map(p => ({
                 time: p.time,
                 value: p.value,
-                type: p.type || TimelineEditor.PointType.POLYLINE
+                type: p.type || TimelineEditor.PointType.LINEAR
             }));
             
-            this.history = [];
+            //this.history = [];
             this.saveToHistory();
             this.draw();
 
@@ -679,7 +707,7 @@ class TimelineEditor {
         }
         return false;
     }
-
+    
     // Save history method for undo functionality
     saveToHistory() {
         // Deep copy current point data
@@ -695,6 +723,12 @@ class TimelineEditor {
         if (this.history.length > this.maxHistoryLength) {
             this.history.shift();
         }
+    }
+
+    // Reset history
+    resetHistory() {
+        this.history = [];
+        this.saveToHistory();
     }
     
     // Undo method - Reverts to the previous state in history
@@ -752,9 +786,10 @@ class TimelineEditor {
             this.playhead.timer = setInterval(() => {
                 this.playhead.time += 1 / this.playhead.fps;
                 
-                // Stop at endpoint
-                if (this.playhead.time >= this.totalDuration) {
-                    this.stop();
+                // Stop when playhead reaches total duration or last control point
+                const lastPoint = this.points[this.points.length - 1];
+                if (this.playhead.time >= this.totalDuration || this.playhead.time >= lastPoint.time) {
+                    this.pause();
                     return;
                 }
                 

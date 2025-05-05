@@ -4,6 +4,9 @@ A JavaScript-based timeline editor component that provides an interactive interf
 
 ![screenshot](screenshot.png)
 
+## Demo
+You can see a live demo of the TimelineEditor here: TimelineEditor/index.html
+
 ## Features
 
 - Interactive curve editing with draggable control points
@@ -120,7 +123,7 @@ timeline.lineColor = '#0cf';
 // Import predefined curve
 timeline.importData({
     points: [
-        { time:  0, value: 0 }, // default point type is TimelineEditor.PointType.POLYLINE
+        { time:  0, value: 0 }, // default point type is TimelineEditor.PointType.LINEAR
         { time:  5, value: 0 },
         { time: 15, value: 100, type: TimelineEditor.PointType.BEZIER },
         { time: 30, value: 0 }

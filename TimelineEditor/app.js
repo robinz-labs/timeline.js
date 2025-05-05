@@ -80,5 +80,6 @@ clearMarkersButton.addEventListener('click', () => {
 
 timeline.addEventListener('playheadTimeChange', (data) => {
     const valueDisplay = document.getElementById('playheadValue');
+    valueDisplay.style.color = data.isPlaying ? '#FFFFFF' : '#999999';
     valueDisplay.textContent = `Time: ${data.time.toFixed(2)}s, Value: ${data.value.toFixed(2)}%`;
 });

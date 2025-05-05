@@ -27,9 +27,12 @@ Window {
                     console.log("Timeline editor loaded successfully")
                     
                     // Add event listener
-                   webView.runJavaScript(`
+                    webView.runJavaScript(`
                         timeline.addEventListener('playheadTimeChange', function(data) {
-                            console.log("event.playheadTimeChange:", data.time.toFixed(2), data.value.toFixed(2));
+                            console.log("event.playheadTimeChange:", 
+                                data.time.toFixed(2), 
+                                data.value.toFixed(2),
+                                data.isPlaying);
                         });
                     `);
                 }
@@ -37,9 +40,15 @@ Window {
 
             // Receive console output from WebView
             onJavaScriptConsoleMessage: function(level, message, lineNumber, sourceId) {
-                //console.log("Console message:", level, message, lineNumber, sourceId)
-                if (level===0 && message.startsWith("event.playheadTimeChange:"))
-                    valueDisplay.text = message.substring(25);
+
+                // Split the message into parts
+                const parts = message.split(' ');
+
+                // Parse the message
+                if (level===0 && parts[0] == "event.playheadTimeChange:") {
+                    valueDisplay.text = parts[1] + " s  " + parts[2] + " %";
+                    valueDisplay.color = parts[3] === "true" ? "#FFFFFF" : "#666666";
+                }
             }
         }
 

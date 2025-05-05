@@ -8,6 +8,7 @@
             background-color: #1e1e1e;
             margin: 0;
             padding: 0;
+            overflow: hidden;
         }
         #timelineCanvas {
             display: block;
@@ -20,6 +21,8 @@
     <script src="qrc:/timeline.js"></script>
     <script>
         var timeline;
+        
+        document.addEventListener('contextmenu', event => event.preventDefault());
         
         // Function to adjust canvas size
         function resizeCanvas() {
